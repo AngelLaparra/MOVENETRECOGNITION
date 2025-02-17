@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba examen MOVENET</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
+    <div id="label-container"></div>
+</head>
+<body>
+    <video id="video" width="640" height="480" autoplay></video>
+    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+    <canvas id="SnapCanvas" width="640" height="480"></canvas>
+    <canvas id="croppedCanvas" width="640" height="480"></canvas>
+    
+    <script>
+        async function activateCamera() {
+            try {
+                const video = document.getElementById('video');
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+            } catch (error) {
+                console.error('Error accessing the camera', error);
+            }
+        }
+
+        function Preparados() {
+            setTimeout(() => {
+                const video = document.getElementById('video');
+                const canvas = document.getElementById('canvas');
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Obtener la imagen capturada como URL de datos
+                const imageData = canvas.toDataURL('image/png');
+                console.log('Photo captured:', imageData);
+                
+                // Mostrar la imagen en otro canvas
+                const SnapCanvas = document.getElementById('SnapCanvas');
+                const outputContext = SnapCanvas.getContext('2d');
+                const img = new Image();
+                img.onload = function() {
+                    outputContext.drawImage(img, 0, 0, SnapCanvas.width, SnapCanvas.height);
+                };
+                img.src = imageData;
+
+                loadAndRunModel();
+
+                console.log('Photo captured');
+            }, 5000);
+            const texto = 'Listos, ya y patata';
+            const utterance = new SpeechSynthesisUtterance(texto);
+            window.speechSynthesis.speak(utterance);
+            console.log(texto);
+        }
+
+        function Photo() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Obtener la imagen capturada como URL de datos
+            const imageData = canvas.toDataURL('image/png');
+            console.log('Photo captured:', imageData);
+            
+            // Mostrar la imagen en otro canvas
+            const SnapCanvas = document.getElementById('SnapCanvas');
+            const outputContext = SnapCanvas.getContext('2d');
+            const img = new Image();
+            img.onload = function() {
+                outputContext.drawImage(img, 0, 0, SnapCanvas.width, SnapCanvas.height);
+            };
+            img.src = imageData;
+
+            loadAndRunModel();
+
+            console.log('Photo captured');
+            const texto = 'Patata';
+            const utterance = new SpeechSynthesisUtterance(texto);
+            window.speechSynthesis.speak(utterance);
+            console.log(texto);
+        }
+        //Modelo de deteccion de audio
+        const URL = "https://teachablemachine.withgoogle.com/models/beSIeb3Yj/";
+
+        async function createModel() {
+            const checkpointURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            const recognizer = speechCommands.create(
+                "BROWSER_FFT",
+                undefined,
+                checkpointURL,
+                metadataURL);
+
+            await recognizer.ensureModelLoaded();
+
+            return recognizer;
+        }
+
+        async function init() {
+            const recognizer = await createModel();
+            const classLabels = recognizer.wordLabels();
+            console.log("Class Labels:", classLabels);
+            const labelContainer = document.getElementById("label-container");
+            for (let i = 0; i < classLabels.length; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+
+            recognizer.listen(result => {
+                const scores = result.scores;
+                for (let i = 0; i < classLabels.length; i++) {
+                    const classPrediction = classLabels[i] + ": " + result.scores[i].toFixed(2);
+                    labelContainer.childNodes[i].innerHTML = classPrediction;
+                }
+
+                const detectedWordIndex = scores.indexOf(Math.max(...scores));
+                if (detectedWordIndex === 0) {
+                    console.log("he detectado 'foto'");
+                    Photo();
+                } else {
+                    console.log("Di 'foto' o 'preparado'");
+                }
+                if (detectedWordIndex === 1) {
+                    console.log("He detectado 'preparado'");
+                    Preparados();
+                } else {
+                    console.log("Di 'foto' o 'preparado'");
+                }
+            }, {
+                includeSpectrogram: true,
+                probabilityThreshold: 0.9,
+                invokeCallbackOnNoiseAndUnknown: true,
+                overlapFactor: 0.50
+            });
+            //Por si quisiera para el reconocimiento en un periodo de prueba
+            // setTimeout(() => recognizer.stopListening(), 5000);
+        }
+        init();
+        activateCamera();
+    </script>
+    <script src="./Movenet.js" defer></script>
+</body>
+</html>
